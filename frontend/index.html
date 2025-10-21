@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的记账本 - 专业版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-theme">
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">💰 我的记账本</h1>
+            <div class="nav-actions">
+                <span id="userWelcome" class="user-welcome"></span>
+                <button onclick="toggleTheme()" class="btn-icon" title="切换主题">
+                    🌓
+                </button>
+                <button onclick="logout()" class="btn-secondary">退出登录</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 快捷操作栏 -->
+        <section class="quick-actions">
+            <div class="quick-buttons">
+                <button onclick="quickAdd('food')" class="quick-btn" data-amount="30">
+                    🍔 餐饮 ¥30
+                </button>
+                <button onclick="quickAdd('transport')" class="quick-btn" data-amount="10">
+                    🚗 交通 ¥10
+                </button>
+                <button onclick="quickAdd('shopping')" class="quick-btn" data-amount="100">
+                    🛍️ 购物 ¥100
+                </button>
+                <button onclick="showQuickAdd()" class="quick-btn custom">
+                    ✏️ 自定义
+                </button>
+            </div>
+        </section>
+
+        <!-- 顶部统计 -->
+        <header class="header">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <span class="stat-label">本月支出</span>
+                        <span class="stat-value expense" id="monthExpense">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-info">
+                        <span class="stat-label">预算剩余</span>
+                        <span class="stat-value budget" id="budgetRemaining">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-info">
+                        <span class="stat-label">日均消费</span>
+                        <span class="stat-value" id="dailyAverage">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-info">
+                        <span class="stat-label">消费趋势</span>
+                        <span class="stat-value" id="spendingTrend">→</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 预算和提醒 -->
+        <section class="alerts" id="alertsContainer">
+            <!-- 提醒信息会动态显示在这里 -->
+        </section>
+
+        <!-- 预算管理 -->
+        <section class="budget-section">
+            <div class="section-header">
+                <h2>预算管理</h2>
+                <button onclick="showBudgetSettings()" class="btn-text">详细设置</button>
+            </div>
+            <div class="budget-display">
+                <div class="budget-progress">
+                    <div class="progress-info">
+                        <span>月度预算</span>
+                        <span id="budgetAmount">未设置</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="budgetProgress"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>已用: <span id="usedAmount">0</span></span>
+                        <span>剩余: <span id="remainingAmount">0</span></span>
+                    </div>
+                </div>
+                <div class="budget-actions">
+                    <button onclick="addQuickBudget(1000)" class="btn-outline">设1000</button>
+                    <button onclick="addQuickBudget(2000)" class="btn-outline">设2000</button>
+                    <button onclick="addQuickBudget(3000)" class="btn-outline">设3000</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 快速记账表单 -->
+        <section class="quick-add-form" id="quickAddForm" style="display: none;">
+            <div class="form-header">
+                <h3>快速记账</h3>
+                <button onclick="hideQuickAdd()" class="btn-close">×</button>
+            </div>
+            <div class="form-grid">
+                <input type="number" id="quickAmount" class="form-input" placeholder="金额">
+                <select id="quickCategory" class="form-input">
+                    <option value="food">餐饮</option>
+                    <option value="transport">交通</option>
+                    <option value="shopping">购物</option>
+                    <option value="entertainment">娱乐</option>
+                    <option value="medical">医疗</option>
+                    <option value="other">其他</option>
+                </select>
+                <input type="text" id="quickNote" class="form-input" placeholder="备注">
+                <button onclick="submitQuickAdd()" class="btn-primary">确认添加</button>
+            </div>
+        </section>
+
+        <!-- 主记账表单 -->
+        <section class="add-record">
+            <div class="form-grid detailed">
+                <select id="type" class="form-input">
+                    <option value="expense">支出</option>
+                    <option value="income">收入</option>
+                </select>
+                <div class="input-with-currency">
+                    <input type="number" id="amount" class="form-input" placeholder="金额">
+                    <select id="currency" class="currency-select">
+                        <option value="CNY">¥ CNY</option>
+                        <option value="USD">$ USD</option>
+                        <option value="EUR">€ EUR</option>
+                        <option value="JPY">¥ JPY</option>
+                    </select>
+                </div>
+                <select id="category" class="form-input">
+                    <option value="">选择分类</option>
+                    <option value="food">🍔 餐饮</option>
+                    <option value="transport">🚗 交通</option>
+                    <option value="shopping">🛍️ 购物</option>
+                    <option value="entertainment">🎬 娱乐</option>
+                    <option value="medical">🏥 医疗</option>
+                    <option value="education">📚 教育</option>
+                    <option value="investment">📈 投资</option>
+                    <option value="other">📦 其他</option>
+                </select>
+                <select id="account" class="form-input">
+                    <option value="cash">💵 现金</option>
+                    <option value="bank">💳 银行卡</option>
+                    <option value="alipay">🔵 支付宝</option>
+                    <option value="wechat">🟢 微信支付</option>
+                    <option value="credit">🟠 信用卡</option>
+                    <option value="digital">🟣 数字钱包</option>
+                </select>
+                <input type="date" id="date" class="form-input">
+                <input type="text" id="note" class="form-input" placeholder="备注信息">
+                <button onclick="addRecord()" class="btn-primary large">📝 添加记录</button>
+            </div>
+        </section>
+
+        <!-- 高级图表 -->
+        <section class="charts">
+            <div class="section-header">
+                <h2>数据分析</h2>
+                <div class="chart-controls">
+                    <select id="chartPeriod" onchange="updateCharts()">
+                        <option value="month">本月</option>
+                        <option value="lastMonth">上月</option>
+                        <option value="year">今年</option>
+                    </select>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>📊 分类分布</h3>
+                    <div id="categoryChart" class="chart-container"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>📈 消费趋势</h3>
+                    <div id="trendChart" class="chart-container"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>💳 账户分布</h3>
+                    <div id="accountChart" class="chart-container"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>🔄 月度对比</h3>
+                    <div id="comparisonChart" class="chart-container"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 工具按钮 -->
+        <section class="tools">
+            <h2>数据工具</h2>
+            <div class="tools-grid">
+                <div class="tool-card" onclick="exportData()">
+                    <div class="tool-icon">📤</div>
+                    <div class="tool-info">
+                        <h4>导出数据</h4>
+                        <p>备份所有记录到文件</p>
+                    </div>
+                </div>
+                <div class="tool-card" onclick="importData()">
+                    <div class="tool-icon">📥</div>
+                    <div class="tool-info">
+                        <h4>导入数据</h4>
+                        <p>从文件恢复数据</p>
+                    </div>
+                </div>
+                <div class="tool-card" onclick="showSearch()">
+                    <div class="tool-icon">🔍</div>
+                    <div class="tool-info">
+                        <h4>高级搜索</h4>
+                        <p>多条件筛选记录</p>
+                    </div>
+                </div>
+                <div class="tool-card" onclick="showCleanup()">
+                    <div class="tool-icon">🧹</div>
+                    <div class="tool-info">
+                        <h4>数据清理</h4>
+                        <p>批量删除记录</p>
+                    </div>
+                </div>
+                <div class="tool-card" onclick="showStatistics()">
+                    <div class="tool-icon">📋</div>
+                    <div class="tool-info">
+                        <h4>详细统计</h4>
+                        <p>查看完整报告</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 记录列表 -->
+        <section class="records">
+            <div class="section-header">
+                <h2>最近记录</h2>
+                <div class="record-actions">
+                    <input type="text" id="searchInput" class="search-input" placeholder="搜索记录..." oninput="searchRecords()">
+                    <button onclick="toggleSort()" class="btn-text" id="sortButton">
+                        ↑↓ 排序
+                    </button>
+                </div>
+            </div>
+            <div class="record-list" id="recordList">
+                <!-- 记录会动态显示在这里 -->
+            </div>
+        </section>
+    </div>
+
+    <!-- 各种模态框 -->
+    <div id="modalsContainer">
+        <!-- 模态框会动态插入到这里 -->
+    </div>
+
+    <!-- 底部信息 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>💡 提示: 使用快捷键快速操作 - <kbd>Q</kbd> 快速记账, <kbd>F</kbd> 搜索, <kbd>E</kbd> 导出</p>
+            <p class="footer-crypto" id="encryptionStatus">🔒 数据已加密保护</p>
+        </div>
+    </footer>
+
+    <script src="api.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

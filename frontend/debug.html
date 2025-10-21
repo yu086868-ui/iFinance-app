@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据调试 - 记账本</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        button { padding: 10px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 数据调试页面</h1>
+    
+    <div class="debug-section">
+        <h3>1. 本地存储状态</h3>
+        <button onclick="checkLocalStorage()">检查本地存储</button>
+        <div id="localStorageInfo"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>2. API 连接测试</h3>
+        <button onclick="testAPI()">测试API连接</button>
+        <div id="apiInfo"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>3. 数据操作测试</h3>
+        <button onclick="addTestRecord()">添加测试记录</button>
+        <button onclick="loadAllRecords()">加载所有记录</button>
+        <div id="dataInfo"></div>
+    </div>
+
+    <script src="api.js"></script>
+    <script>
+        function checkLocalStorage() {
+            const token = localStorage.getItem('authToken');
+            const user = localStorage.getItem('user');
+            
+            document.getElementById('localStorageInfo').innerHTML = `
+                <pre>
+Token: ${token ? '✅ 存在' : '❌ 缺失'}
+User: ${user ? '✅ 存在' : '❌ 缺失'}
+User Data: ${user || '无'}
+                </pre>
+            `;
+        }
+
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost:5000/health');
+                const data = await response.json();
+                document.getElementById('apiInfo').innerHTML = `
+                    <pre>✅ API连接正常\n${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('apiInfo').innerHTML = `
+                    <pre>❌ API连接失败: ${error.message}</pre>
+                `;
+            }
+        }
+
+        async function addTestRecord() {
+            try {
+                const record = {
+                    type: 'expense',
+                    amount: 50,
+                    category: 'food',
+                    account: 'cash',
+                    date: new Date().toISOString().split('T')[0],
+                    note: '测试记录'
+                };
+                
+                const result = await window.financeAPI.createRecord(record);
+                document.getElementById('dataInfo').innerHTML = `
+                    <pre>✅ 添加测试记录成功\n${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('dataInfo').innerHTML = `
+                    <pre>❌ 添加失败: ${error.message}</pre>
+                `;
+            }
+        }
+
+        async function loadAllRecords() {
+            try {
+                const result = await window.financeAPI.getRecords();
+                document.getElementById('dataInfo').innerHTML = `
+                    <pre>✅ 加载记录成功\n记录数量: ${result.data.records.length}\n${JSON.stringify(result.data.records, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('dataInfo').innerHTML = `
+                    <pre>❌ 加载失败: ${error.message}</pre>
+                `;
+            }
+        }
+
+        // 页面加载时自动检查
+        checkLocalStorage();
+        testAPI();
+    </script>
+</body>
+</html>
