@@ -11,10 +11,6 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
     
-    defaults:
-      run:
-        working-directory: backend
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -23,20 +19,24 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
         
     - name: Install backend dependencies
-      run: npm ci
+      run: |
+        cd backend
+        npm ci
       
     - name: Run backend tests
-      run: npm test
+      run: |
+        cd backend
+        npm test
       env:
         NODE_ENV: test
         JWT_SECRET: test_jwt_secret_for_ci
         
     - name: Check code linting
-      run: npm run lint || echo "Linting completed"
+      run: |
+        cd backend
+        npm run lint || echo "Linting completed"
       
   frontend-check:
     name: Frontend Checks
