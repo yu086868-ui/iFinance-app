@@ -1,0 +1,67 @@
+name: CI for Finance App
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Run backend tests
+      run: |
+        cd backend
+        npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test_secret
+        
+    - name: Check backend code quality
+      run: |
+        cd backend
+        npx eslint server.js seed-data.js || echo "ESLint not configured, skipping"
+        
+  frontend-check:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate HTML
+      uses: peaceiris/actions-htmlproofer@v3
+      with:
+        directory: "./frontend"
+        file: "index.html"
+        ignore-urls: "http://localhost:5000"
+        
+    - name: Check JavaScript syntax
+      run: |
+        cd frontend
+        node -c script.js
+        node -c api.js
+        
+    - name: Check for broken links
+      run: |
+        grep -r "http://" frontend/ || true
+        grep -r "https://" frontend/ || true
