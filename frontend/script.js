@@ -1522,3 +1522,576 @@ function closeModal(modalId) {
         modal.remove();
     }
 }
+// ==================== 预算管理功能 ====================
+
+// 显示预算设置界面
+function showBudgetSettings() {
+    const modalHTML = `
+        <div class="modal" id="budgetModal" style="max-width: 700px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>💰 预算管理</h3>
+                    <button class="btn-close" onclick="closeModal('budgetModal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="budget-tabs">
+                        <button class="budget-tab active" onclick="showBudgetTab('setBudget')">设置预算</button>
+                        <button class="budget-tab" onclick="showBudgetTab('viewBudgets')">查看预算</button>
+                        <button class="budget-tab" onclick="showBudgetTab('budgetUsage')">使用情况</button>
+                    </div>
+                    
+                    <!-- 设置预算标签页 -->
+                    <div id="setBudgetTab" class="budget-tab-content active">
+                        <div style="margin-bottom: 20px;">
+                            <h4>新增预算</h4>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                                <select id="budgetCategory" class="form-input">
+                                    <option value="">选择分类</option>
+                                    <option value="food">餐饮</option>
+                                    <option value="transport">交通</option>
+                                    <option value="shopping">购物</option>
+                                    <option value="entertainment">娱乐</option>
+                                    <option value="medical">医疗</option>
+                                    <option value="education">教育</option>
+                                    <option value="investment">投资</option>
+                                    <option value="other">其他</option>
+                                </select>
+                                <input type="number" id="budgetAmount" class="form-input" placeholder="预算金额">
+                                <select id="budgetPeriod" class="form-input">
+                                    <option value="monthly">月度</option>
+                                    <option value="yearly">年度</option>
+                                </select>
+                                <button onclick="addBudget()" class="btn-primary">添加</button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4>快速设置</h4>
+                            <div class="quick-budget-buttons">
+                                ${['food', 'transport', 'shopping', 'entertainment'].map(category => `
+                                    <button class="quick-budget-btn" onclick="setQuickBudget('${category}')">
+                                        ${getCategoryName(category)}预算
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 查看预算标签页 -->
+                    <div id="viewBudgetsTab" class="budget-tab-content">
+                        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <h4>当前预算列表</h4>
+                            <button onclick="loadBudgets()" class="btn-text">刷新</button>
+                        </div>
+                        <div id="budgetsList" style="max-height: 300px; overflow-y: auto;">
+                            <div class="loading">加载中...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用情况标签页 -->
+                    <div id="budgetUsageTab" class="budget-tab-content">
+                        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <h4>预算使用情况</h4>
+                            <div>
+                                <select id="budgetMonth" class="form-input" style="width: 120px;" onchange="loadBudgetUsage()">
+                                    ${Array.from({length: 12}, (_, i) => 
+                                        `<option value="${i + 1}" ${i + 1 === new Date().getMonth() + 1 ? 'selected' : ''}>${i + 1}月</option>`
+                                    ).join('')}
+                                </select>
+                                <select id="budgetYear" class="form-input" style="width: 100px; margin-left: 10px;" onchange="loadBudgetUsage()">
+                                    ${Array.from({length: 3}, (_, i) => {
+                                        const year = new Date().getFullYear() - 1 + i;
+                                        return `<option value="${year}" ${year === new Date().getFullYear() ? 'selected' : ''}>${year}年</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div id="budgetUsageList" style="max-height: 300px; overflow-y: auto;">
+                            <div class="loading">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    showModal('budgetModal', modalHTML);
+    loadBudgets();
+    loadBudgetUsage();
+}
+
+// 切换预算标签页
+function showBudgetTab(tabName) {
+    // 更新标签状态
+    document.querySelectorAll('.budget-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.budget-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // 激活选中的标签
+    event.target.classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+}
+
+// 添加预算
+async function addBudget() {
+    const category = document.getElementById('budgetCategory').value;
+    const amount = parseFloat(document.getElementById('budgetAmount').value);
+    const period = document.getElementById('budgetPeriod').value;
+    
+    if (!category || !amount || amount <= 0) {
+        showAlert('请选择分类并输入有效的金额', 'warning');
+        return;
+    }
+    
+    try {
+        showLoading('正在设置预算...');
+        const result = await window.financeAPI.setBudget({
+            category,
+            amount,
+            period
+        });
+        
+        if (result.success) {
+            showAlert('预算设置成功！', 'success');
+            // 清空表单
+            document.getElementById('budgetCategory').value = '';
+            document.getElementById('budgetAmount').value = '';
+            // 重新加载预算数据
+            await loadBudget();
+            // 重新加载预算列表和使用情况
+            if (typeof loadBudgets === 'function') await loadBudgets();
+            if (typeof loadBudgetUsage === 'function') await loadBudgetUsage();
+        }
+    } catch (error) {
+        console.error('设置预算失败:', error);
+        showAlert('设置预算失败: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 快速设置预算
+function setQuickBudget(category) {
+    const amount = prompt(`请输入${getCategoryName(category)}的预算金额:`, '500');
+    if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
+        document.getElementById('budgetCategory').value = category;
+        document.getElementById('budgetAmount').value = amount;
+        addBudget();
+    }
+}
+
+// 更新预算显示函数
+function updateBudgetDisplay() {
+    const budgetAmountElement = document.getElementById('budgetAmount');
+    const budgetRemainingElement = document.getElementById('budgetRemaining');
+    const progressFill = document.getElementById('budgetProgress');
+    const usedAmountElement = document.getElementById('usedAmount');
+    const remainingAmountElement = document.getElementById('remainingAmount');
+    
+    // 如果没有预算数据，显示默认状态
+    if (!window.currentBudgetData || window.currentBudgetData.length === 0) {
+        if (budgetAmountElement) budgetAmountElement.textContent = '未设置';
+        if (budgetRemainingElement) budgetRemainingElement.textContent = '0';
+        if (progressFill) progressFill.style.width = '0%';
+        if (usedAmountElement) usedAmountElement.textContent = '0';
+        if (remainingAmountElement) remainingAmountElement.textContent = '0';
+        return;
+    }
+    
+    // 计算总预算和总支出
+    const totalBudget = window.currentBudgetData.reduce((sum, budget) => sum + budget.amount, 0);
+    const totalExpense = window.currentBudgetData.reduce((sum, budget) => sum + (budget.actual_amount || 0), 0);
+    const totalRemaining = totalBudget - totalExpense;
+    const usagePercent = totalBudget > 0 ? (totalExpense / totalBudget) * 100 : 0;
+    
+    // 更新显示
+    if (budgetAmountElement) budgetAmountElement.textContent = `¥${totalBudget.toFixed(2)}`;
+    if (budgetRemainingElement) budgetRemainingElement.textContent = totalRemaining.toFixed(2);
+    if (progressFill) {
+        progressFill.style.width = `${Math.min(usagePercent, 100)}%`;
+        // 根据使用率设置颜色
+        if (usagePercent >= 90) {
+            progressFill.style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
+        } else if (usagePercent >= 70) {
+            progressFill.style.background = 'linear-gradient(90deg, #f39c12, #e67e22)';
+        } else {
+            progressFill.style.background = 'linear-gradient(90deg, #2ecc71, #27ae60)';
+        }
+    }
+    if (usedAmountElement) usedAmountElement.textContent = totalExpense.toFixed(2);
+    if (remainingAmountElement) remainingAmountElement.textContent = totalRemaining.toFixed(2);
+    
+    // 预算提醒
+    if (totalRemaining < 0) {
+        showAlert(`预算超支！已超出 ¥${Math.abs(totalRemaining).toFixed(2)}`, 'warning');
+    } else if (usagePercent >= 80) {
+        showAlert(`预算警告：已使用 ${usagePercent.toFixed(1)}%`, 'warning');
+    }
+}
+
+// 加载预算列表
+async function loadBudget() {
+    try {
+        console.log('🔍 开始加载预算数据...');
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        
+        console.log(`📅 请求预算数据: ${currentYear}-${currentMonth}`);
+        const result = await window.financeAPI.getBudgetUsage({ 
+            year: currentYear, 
+            month: currentMonth 
+        });
+        
+        console.log('💰 预算API响应:', result);
+        
+        if (result.success) {
+            window.currentBudgetData = result.data.budgets || [];
+            console.log(`✅ 加载到 ${window.currentBudgetData.length} 个预算`);
+            updateBudgetDisplay();
+        } else {
+            console.log('❌ 预算API返回失败');
+            window.currentBudgetData = [];
+            updateBudgetDisplay();
+        }
+    } catch (error) {
+        console.error('❌ 加载预算失败:', error);
+        window.currentBudgetData = [];
+        updateBudgetDisplay();
+    }
+}
+
+// 删除预算
+async function deleteBudget(id) {
+    if (!confirm('确定要删除这个预算吗？')) {
+        return;
+    }
+    
+    try {
+        showLoading('正在删除预算...');
+        const result = await window.financeAPI.deleteBudget(id);
+        
+        if (result.success) {
+            showAlert('预算删除成功！', 'success');
+            loadBudgets();
+            loadBudgetUsage();
+        }
+    } catch (error) {
+        console.error('删除预算失败:', error);
+        showAlert('删除预算失败: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 加载预算使用情况
+async function loadBudgetUsage() {
+    try {
+        const year = document.getElementById('budgetYear')?.value || new Date().getFullYear();
+        const month = document.getElementById('budgetMonth')?.value || new Date().getMonth() + 1;
+        
+        const result = await window.financeAPI.getBudgetUsage({ year, month });
+        const usageList = document.getElementById('budgetUsageList');
+        
+        if (!usageList) return;
+        
+        if (result.success && result.data.budgets && result.data.budgets.length > 0) {
+            usageList.innerHTML = result.data.budgets.map(budget => {
+                const usagePercent = budget.usage_percent || 0;
+                const isOver = budget.is_over_budget;
+                const remaining = budget.remaining_amount || 0;
+                
+                return `
+                    <div class="budget-usage-item ${isOver ? 'over-budget' : ''}">
+                        <div class="budget-usage-header">
+                            <span class="budget-category">${getCategoryName(budget.category)}</span>
+                            <span class="budget-amounts">
+                                <span class="actual">¥${(budget.actual_amount || 0).toFixed(2)}</span>
+                                <span class="separator">/</span>
+                                <span class="budget">¥${budget.amount.toFixed(2)}</span>
+                            </span>
+                        </div>
+                        <div class="budget-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill ${isOver ? 'over' : ''}" 
+                                     style="width: ${Math.min(usagePercent, 100)}%"></div>
+                            </div>
+                            <span class="progress-text">
+                                ${isOver ? 
+                                    `超支 ¥${Math.abs(remaining).toFixed(2)}` : 
+                                    `剩余 ¥${remaining.toFixed(2)}`
+                                } (${usagePercent.toFixed(1)}%)
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // 显示汇总信息
+            const summary = result.data.summary;
+            if (summary) {
+                usageList.innerHTML += `
+                    <div class="budget-summary">
+                        <div class="summary-item">
+                            <span>总预算:</span>
+                            <span>¥${(summary.total_budget || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>总支出:</span>
+                            <span>¥${(summary.total_actual || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>总剩余:</span>
+                            <span style="color: ${(summary.total_remaining || 0) >= 0 ? '#2ecc71' : '#e74c3c'}">
+                                ¥${(summary.total_remaining || 0).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            usageList.innerHTML = `
+                <div class="no-data" style="text-align: center; padding: 40px; color: #7f8c8d;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">💰</div>
+                    <p>暂无预算数据</p>
+                    <p style="font-size: 12px; margin-top: 10px;">请在"设置预算"标签页中添加预算</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('加载预算使用情况失败:', error);
+        const usageList = document.getElementById('budgetUsageList');
+        if (usageList) {
+            usageList.innerHTML = '<div class="error" style="text-align: center; padding: 20px; color: #e74c3c;">加载失败</div>';
+        }
+    }
+}
+
+// 快速预算设置（原有函数更新）
+function addQuickBudget(amount) {
+    const modalHTML = `
+        <div class="modal" id="quickBudgetModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>💰 快速设置月度总预算</h3>
+                    <button class="btn-close" onclick="closeModal('quickBudgetModal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 15px; color: #7f8c8d;">设置月度总预算后，系统会自动分配各分类预算</p>
+                    <div class="form-group">
+                        <label class="form-label">月度总预算金额</label>
+                        <input type="number" id="totalBudgetAmount" class="form-input" value="${amount}" placeholder="输入总预算金额">
+                    </div>
+                    <div class="budget-suggestion">
+                        <div style="font-size: 14px; color: #7f8c8d; margin-bottom: 10px;">推荐分配:</div>
+                        <div id="budgetSuggestions"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button onclick="applyQuickBudget()" class="btn-primary">应用预算</button>
+                    <button onclick="closeModal('quickBudgetModal')" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    showModal('quickBudgetModal', modalHTML);
+    updateBudgetSuggestions(amount);
+}
+
+function updateBudgetSuggestions(totalAmount) {
+    const suggestions = document.getElementById('budgetSuggestions');
+    const budgetRules = {
+        'food': 0.3,      // 餐饮 30%
+        'shopping': 0.2,  // 购物 20%
+        'transport': 0.15, // 交通 15%
+        'entertainment': 0.1, // 娱乐 10%
+        'education': 0.1, // 教育 10%
+        'medical': 0.05,  // 医疗 5%
+        'other': 0.1      // 其他 10%
+    };
+    
+    suggestions.innerHTML = Object.entries(budgetRules).map(([category, ratio]) => {
+        const amount = totalAmount * ratio;
+        return `
+            <div class="suggestion-item">
+                <span>${getCategoryName(category)}</span>
+                <span>¥${amount.toFixed(2)} (${(ratio * 100).toFixed(0)}%)</span>
+            </div>
+        `;
+    }).join('');
+}
+
+async function applyQuickBudget() {
+    const totalAmount = parseFloat(document.getElementById('totalBudgetAmount').value);
+    
+    if (!totalAmount || totalAmount <= 0) {
+        showAlert('请输入有效的预算金额', 'warning');
+        return;
+    }
+    
+    const budgetRules = {
+        'food': 0.3,
+        'shopping': 0.2,
+        'transport': 0.15,
+        'entertainment': 0.1,
+        'education': 0.1,
+        'medical': 0.05,
+        'other': 0.1
+    };
+    
+    try {
+        showLoading('正在设置预算...');
+        
+        let successCount = 0;
+        for (const [category, ratio] of Object.entries(budgetRules)) {
+            try {
+                await window.financeAPI.setBudget({
+                    category,
+                    amount: totalAmount * ratio,
+                    period: 'monthly'
+                });
+                successCount++;
+            } catch (error) {
+                console.error(`设置${getCategoryName(category)}预算失败:`, error);
+            }
+        }
+        
+        showAlert(`成功设置 ${successCount} 个分类预算！`, 'success');
+        closeModal('quickBudgetModal');
+        loadBudgets();
+        loadBudgetUsage();
+        
+    } catch (error) {
+        console.error('设置快速预算失败:', error);
+        showAlert('设置预算失败: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+
+// ==================== 样式补充 ====================
+
+// 在页面加载时注入额外样式
+function injectAdditionalStyles() {
+    const additionalStyles = `
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #7f8c8d;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-body {
+            margin-bottom: 25px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .cleanup-option {
+            padding: 12px;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .cleanup-option label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .stat-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-section h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+    `;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = additionalStyles;
+    document.head.appendChild(styleSheet);
+}
+
+// 在应用初始化时注入样式
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(injectAdditionalStyles, 100);
+});
+
+console.log('✅ script.js 加载完成');
